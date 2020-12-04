@@ -393,14 +393,14 @@ public class UDPClientLibrary {
 
 	private void startHandshake(SocketAddress router_Socket, InetSocketAddress server_Socket) throws IOException {
 		try (DatagramChannel dt_Channel = DatagramChannel.open()) {
-			String msg = "Hi Server";
+			String msg = "Hi from Client";
 			sequence_No++;
 			// SYN
 			Packet p_handshake = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
 					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
 					.setPayload(msg.getBytes()).create();
 			dt_Channel.send(p_handshake.toBuffer(), router_Socket);
-			System.out.println("Sending Hi Server");
+			System.out.println("Sending Hi from Client");
 
 			dt_Channel.configureBlocking(false);
 			Selector selector = Selector.open();
