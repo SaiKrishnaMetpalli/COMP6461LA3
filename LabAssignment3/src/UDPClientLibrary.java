@@ -6,11 +6,27 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import static java.nio.channels.SelectionKey.OP_READ;
+import java.nio.channels.Selector;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class UDPClientLibrary {
 	private String[] cmd_Arguments;
+	private String router_Host="localhost";
+	private int router_Port=3000;
+	private int sequence_No=0;
+	private int timeout = 3000;
+	private int ack_Count = 0;
+	static List<Long> receivedPackets = new ArrayList<>();
 
 	public UDPClientLibrary(String[] arguments) {
 		cmd_Arguments = arguments;
@@ -64,8 +80,10 @@ public class UDPClientLibrary {
 			default:
 				System.out.println("\n==========" + cmd_Arguments[0] + " command not found");
 			}
-		}
+		}		
+		
 	}
+	
 	
 	private void handlePostRequest() throws IOException {
 		boolean is_Verbose = false;
@@ -285,9 +303,23 @@ public class UDPClientLibrary {
 				break;
 			}
 		}
-		String url_to_redirect = "";
+		
 		if (is_Proceed) {
 			try {
+				SocketAddress router_Socket = new InetSocketAddress(router_Host, router_Port);
+				InetSocketAddress server_Socket = new InetSocketAddress(host, port_No);
+
+				startHandshake(router_Socket, server_Socket);
+				String msg_Send="";
+				msg_Send+="GET " + path + " HTTP/1.0\r\n";
+				msg_Send+="Host:" + host + "\r\n";
+				msg_Send+="User-Agent:Concordia-HTTP/1.0\r\n";
+				if (!header_List.isEmpty()) {
+					for (String header : header_List) {
+						msg_Send+=header + "\r\n";
+					}
+				}
+				processRequest(router_Socket, server_Socket, msg_Send);
 				
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -297,6 +329,127 @@ public class UDPClientLibrary {
 		}		
 	}
 	
+	private void processRequest(SocketAddress router_Socket, InetSocketAddress server_Socket, String msg_Send) throws IOException {
+		try (DatagramChannel dt_Channel = DatagramChannel.open()) {
+			sequence_No++;
+			Packet p_Send = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
+					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
+					.setPayload(msg_Send.getBytes()).create();
+			dt_Channel.send(p_Send.toBuffer(), router_Socket);
+			System.out.println("Sending request message to Router..........");
+
+			
+			dt_Channel.configureBlocking(false);
+			Selector selector = Selector.open();
+			dt_Channel.register(selector, OP_READ);
+			selector.select(timeout);
+
+			Set<SelectionKey> keys = selector.selectedKeys();
+			if (keys.isEmpty()) {
+				System.out.println("Timeout occurred...........\nSending again..........");
+				resend(dt_Channel, p_Send, router_Socket);
+			}
+			
+			ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
+			SocketAddress router = dt_Channel.receive(buf);
+			buf.flip();
+			Packet resp = Packet.fromBuffer(buf);
+			String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
+
+			if (!receivedPackets.contains(resp.getSequenceNumber())) {
+				receivedPackets.add(resp.getSequenceNumber());
+				System.out.println(payload);				
+				sequence_No++;
+				Packet p_Ack = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
+						.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
+						.setPayload("Received".getBytes()).create();
+				dt_Channel.send(p_Ack.toBuffer(), router_Socket);
+
+				dt_Channel.configureBlocking(false);
+				selector = Selector.open();
+				dt_Channel.register(selector, OP_READ);
+				selector.select(timeout);
+
+				keys = selector.selectedKeys();
+				if (keys.isEmpty()) {
+					resend(dt_Channel, p_Ack, router);
+				}
+
+				buf.flip();
+
+				System.out.println("Connection closed..!");
+				keys.clear();
+
+				sequence_No++;
+				Packet p_Close = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
+						.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
+						.setPayload("Ok".getBytes()).create();
+				dt_Channel.send(p_Close.toBuffer(), router_Socket);
+				System.out.println("OK sent");
+			}
+		}
+		
+	}
+
+	private void startHandshake(SocketAddress router_Socket, InetSocketAddress server_Socket) throws IOException {
+		try (DatagramChannel dt_Channel = DatagramChannel.open()) {
+			String msg = "Hi Server";
+			sequence_No++;
+			// SYN
+			Packet p_handshake = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
+					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
+					.setPayload(msg.getBytes()).create();
+			dt_Channel.send(p_handshake.toBuffer(), router_Socket);
+			System.out.println("Sending Hi Server");
+
+			dt_Channel.configureBlocking(false);
+			Selector selector = Selector.open();
+			dt_Channel.register(selector, OP_READ);
+
+			selector.select(timeout);
+
+			Set<SelectionKey> keys = selector.selectedKeys();
+			if (keys.isEmpty()) {
+				System.out.println("Timeout occurred...........\nSending again..........");
+				resend(dt_Channel, p_handshake, router_Socket);
+			}
+
+			ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
+			//buf.flip();
+			Packet resp = Packet.fromBuffer(buf);
+			String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
+			System.out.println(payload + " received..!");
+			receivedPackets.add(resp.getSequenceNumber());
+			keys.clear();
+
+		}
+		
+	}
+
+	private void resend(DatagramChannel dt_Channel, Packet pkt, SocketAddress router_Socket) throws IOException {
+		dt_Channel.send(pkt.toBuffer(), router_Socket);
+		String payload = new String(pkt.getPayload(), StandardCharsets.UTF_8);
+		System.out.println(payload);
+		if (payload.equals("Received")) {
+			ack_Count++;
+		}
+
+		dt_Channel.configureBlocking(false);
+		Selector selector = Selector.open();
+		dt_Channel.register(selector, OP_READ);
+		selector.select(timeout);
+
+		Set<SelectionKey> keys = selector.selectedKeys();
+		if (keys.isEmpty() && ack_Count < 10) {
+			System.out.println("Timeout occurred...........\nSending again..........");
+			resend(dt_Channel, pkt, router_Socket);
+
+		} else {
+			return;
+		}
+		
+	}
+
 	private boolean validateURL(String url) {
 		return url.substring(0, 16).equals("http://localhost");
 	}
