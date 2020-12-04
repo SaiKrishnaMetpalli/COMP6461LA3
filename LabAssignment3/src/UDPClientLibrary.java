@@ -227,6 +227,25 @@ public class UDPClientLibrary {
 
 		if (is_Proceed) {
 			try {
+				SocketAddress router_Socket = new InetSocketAddress(router_Host, router_Port);
+				InetSocketAddress server_Socket = new InetSocketAddress(host, port_No);
+
+				startHandshake(router_Socket, server_Socket);
+				String msg_Send="";
+				msg_Send+="POST " + path + " HTTP/1.0\\r\\n";
+				msg_Send+="Host:" + host + "\r\n";
+				msg_Send+="User-Agent:Concordia-HTTP/1.0\r\n";
+				if (!header_List.isEmpty()) {
+					for (String header : header_List) {
+						msg_Send+=header + "\r\n";
+					}
+				}
+				
+				if (!(data.isEmpty())) {
+					msg_Send+="Content-Length: " + data.length() + "\r\n";					
+				}
+				msg_Send+=data+"\r\n";
+				processRequest(router_Socket, server_Socket, msg_Send);
 				
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -377,7 +396,7 @@ public class UDPClientLibrary {
 
 				buf.flip();
 
-				System.out.println("Connection closed..!");
+				System.out.println("Connection closed..............");
 				keys.clear();
 
 				sequence_No++;
@@ -385,7 +404,7 @@ public class UDPClientLibrary {
 						.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
 						.setPayload("Ok".getBytes()).create();
 				dt_Channel.send(p_Close.toBuffer(), router_Socket);
-				System.out.println("OK sent");
+				System.out.println("OK sent.................");
 			}
 		}
 		
@@ -418,7 +437,7 @@ public class UDPClientLibrary {
 			//buf.flip();
 			Packet resp = Packet.fromBuffer(buf);
 			String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
-			System.out.println(payload + " received..!");
+			System.out.println(payload + " received.................");
 			receivedPackets.add(resp.getSequenceNumber());
 			keys.clear();
 
