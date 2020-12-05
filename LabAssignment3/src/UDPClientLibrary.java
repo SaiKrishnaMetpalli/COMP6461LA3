@@ -2,9 +2,11 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -355,7 +357,7 @@ public class UDPClientLibrary {
 					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
 					.setPayload(msg_Send.getBytes()).create();
 			dt_Channel.send(p_Send.toBuffer(), router_Socket);
-			System.out.println("requesting router for communication...\n");
+			System.out.println("Sending request message to Router..........\n");
 
 			
 			dt_Channel.configureBlocking(false);
@@ -365,7 +367,7 @@ public class UDPClientLibrary {
 
 			Set<SelectionKey> keys = selector.selectedKeys();
 			if (keys.isEmpty()) {
-				System.out.println("Timeout...........\nRetrying sending packets..........\n");
+				System.out.println("Timeout occurred...........\nSending again..........\n");
 				resend(dt_Channel, p_Send, router_Socket);
 			}
 			
@@ -377,11 +379,27 @@ public class UDPClientLibrary {
 
 			if (!receivedPackets.contains(resp.getSequenceNumber())) {
 				receivedPackets.add(resp.getSequenceNumber());
-				System.out.println(payload);				
+				if(payload.contains("Content-Disposition: attachment")) {
+					String[] splitData=payload.split("filename=./");
+					int index=splitData[1].indexOf(";");
+					File file = new File(splitData[1].substring(0,index));
+					file.createNewFile();
+
+					FileWriter fw = new FileWriter(file);
+					BufferedWriter bw = new BufferedWriter(fw);
+					PrintWriter pw = new PrintWriter(bw);
+
+					pw.print(payload);
+					pw.flush();
+					pw.close();
+					System.out.println("File downloaded");
+				} else {
+					System.out.println(payload);
+				}								
 				sequence_No++;
 				Packet p_Ack = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
 						.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
-						.setPayload("data received successfully".getBytes()).create();
+						.setPayload("Received".getBytes()).create();
 				dt_Channel.send(p_Ack.toBuffer(), router_Socket);
 
 				dt_Channel.configureBlocking(false);
@@ -396,15 +414,15 @@ public class UDPClientLibrary {
 
 				buf.flip();
 
-				System.out.println("Terminating the connnection from server...");
+				System.out.println("Connection closed..............");
 				keys.clear();
 
 				sequence_No++;
 				Packet p_Close = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
 						.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
-						.setPayload("Done".getBytes()).create();
+						.setPayload("Ok".getBytes()).create();
 				dt_Channel.send(p_Close.toBuffer(), router_Socket);
-				System.out.println("Confirmation sent to server.");
+				System.out.println("OK sent.................");
 			}
 		}
 		
@@ -412,14 +430,14 @@ public class UDPClientLibrary {
 
 	private void startHandshake(SocketAddress router_Socket, InetSocketAddress server_Socket) throws IOException {
 		try (DatagramChannel dt_Channel = DatagramChannel.open()) {
-			String msg = "Hello from client side";
+			String msg = "Hi from Client";
 			sequence_No++;
 			// SYN
 			Packet p_handshake = new Packet.Builder().setType(0).setSequenceNumber(sequence_No)
 					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
 					.setPayload(msg.getBytes()).create();
 			dt_Channel.send(p_handshake.toBuffer(), router_Socket);
-			System.out.println("Sending Hello from client side");
+			System.out.println("Sending Hi from Client");
 
 			dt_Channel.configureBlocking(false);
 			Selector selector = Selector.open();
@@ -429,7 +447,7 @@ public class UDPClientLibrary {
 
 			Set<SelectionKey> keys = selector.selectedKeys();
 			if (keys.isEmpty()) {
-				System.out.println("Timeout...........\nRetrying sending packets..........\\n\"");
+				System.out.println("Timeout occurred...........\nSending again..........\n");
 				resend(dt_Channel, p_handshake, router_Socket);
 			}
 
@@ -437,7 +455,7 @@ public class UDPClientLibrary {
 //			buf.flip();
 			Packet resp = Packet.fromBuffer(buf);
 			String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
-			System.out.println("Response from server received.........\n");
+			System.out.println("Response received.................\n");
 			receivedPackets.add(resp.getSequenceNumber());
 			keys.clear();
 
@@ -460,7 +478,7 @@ public class UDPClientLibrary {
 
 		Set<SelectionKey> keys = selector.selectedKeys();
 		if (keys.isEmpty() && ack_Count < 10) {
-			System.out.println("Timeout...........\nRetrying sending packets..........\\n\"");
+			System.out.println("Timeout occurred...........\nSending again..........\n");
 			resend(dt_Channel, pkt, router_Socket);
 
 		} else {
