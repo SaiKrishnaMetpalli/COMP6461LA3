@@ -380,7 +380,7 @@ public class UDPClientLibrary {
 			if (!receivedPackets.contains(resp.getSequenceNumber())) {
 				receivedPackets.add(resp.getSequenceNumber());
 				if(payload.contains("Content-Disposition: attachment")) {
-					String[] splitData=payload.split("filename=./");
+					String[] splitData=payload.split("filename=");
 					int index=splitData[1].indexOf(";");
 					File file = new File(splitData[1].substring(0,index));
 					file.createNewFile();
