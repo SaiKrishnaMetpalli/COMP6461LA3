@@ -16,22 +16,22 @@ import java.util.Calendar;
 
 public class ClientRequestHandler {
 
-	private static int port;
+	private int port;
 	private ByteBuffer buf;
 
 	private Socket client_Socket;
-	private static boolean is_Debug_On;
-	private static String dir_Path;
+	private boolean is_Debug_On;
+	private String dir_Path;
 
-	private static String method = "";
-	private static String file_Path = null;
-	private static String content_Type = "";
-	private static String content_Disposition = "";
-	private static boolean list_All_Files = false;
-	private static boolean is_Overwrite = false;
-	private static int status_Code = 200;
-	private static StringBuilder respond = new StringBuilder();
-	private static StringBuilder main_Response_Data = new StringBuilder();
+	private String method = "";
+	private String file_Path = null;
+	private String content_Type = "";
+	private String content_Disposition = "";
+	private boolean list_All_Files = false;
+	private boolean is_Overwrite = false;
+	private int status_Code = 200;
+	private StringBuilder respond;
+	private StringBuilder main_Response_Data;
 	static String data = "";
 
 	public ClientRequestHandler(boolean print_Debug_Message, String directory_Path) {
@@ -41,7 +41,7 @@ public class ClientRequestHandler {
 
 	}
 	
-	public static void serveRequestToServer(int port) {
+	public void serveRequestToServer(int port) {
 		// TODO Auto-generated method stub
 		try (DatagramChannel channel = DatagramChannel.open()) {
 			channel.bind(new InetSocketAddress(port));
@@ -100,7 +100,7 @@ public class ClientRequestHandler {
 
 	}
 
-	private static StringBuilder processPayload(String requestPayload) throws Exception {
+	private StringBuilder processPayload(String requestPayload) throws Exception {
 		// read request of client
 		readRequest(requestPayload);
 		// Processing the request
@@ -118,7 +118,7 @@ public class ClientRequestHandler {
 		return respond;
 	}
 
-	private static void readRequest(String requestPayload) throws Exception {
+	private void readRequest(String requestPayload) throws Exception {
 
 		if (is_Debug_On == true) {
 			System.out.println(requestPayload);
@@ -150,6 +150,8 @@ public class ClientRequestHandler {
 			list_All_Files = true;
 			System.out.println("\n\nHAVE TO PRINT TREE");
 			return;
+		} else {
+			list_All_Files=false;
 		}
 
 		if ((method.equals("post")) && (requestPayload.contains("Content-Length"))) {
@@ -166,8 +168,8 @@ public class ClientRequestHandler {
 
 	}
 
-	private static void processRequest() throws IOException, InterruptedException {
-
+	private void processRequest() throws IOException, InterruptedException {
+		main_Response_Data=new StringBuilder();
 		if (200 != status_Code)
 			return;
 
@@ -245,7 +247,7 @@ public class ClientRequestHandler {
 		}
 	}
 
-	private static void listOfAllFiles(String file_Path, StringBuilder respond_Body) {
+	private void listOfAllFiles(String file_Path, StringBuilder respond_Body) {
 		File current_directory = new File(file_Path);
 		File[] filesList = current_directory.listFiles();
 		if (null != filesList) {
@@ -257,7 +259,8 @@ public class ClientRequestHandler {
 		}
 	}
 	
-	private static void makeResponse() throws Exception {
+	private void makeResponse() throws Exception {
+		respond = new StringBuilder();
 		if (status_Code == 404) {
 			respond.append("HTTP/1.1 404 NOT FOUND\r\n");
 			main_Response_Data.append("The requested File was not found on the server.\r\n");

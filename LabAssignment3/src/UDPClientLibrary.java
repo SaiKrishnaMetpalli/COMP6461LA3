@@ -355,7 +355,7 @@ public class UDPClientLibrary {
 					.setPortNumber(server_Socket.getPort()).setPeerAddress(server_Socket.getAddress())
 					.setPayload(msg_Send.getBytes()).create();
 			dt_Channel.send(p_Send.toBuffer(), router_Socket);
-			System.out.println("Sending request message to Router..........");
+			System.out.println("Sending request message to Router..........\n");
 
 			
 			dt_Channel.configureBlocking(false);
@@ -365,7 +365,7 @@ public class UDPClientLibrary {
 
 			Set<SelectionKey> keys = selector.selectedKeys();
 			if (keys.isEmpty()) {
-				System.out.println("Timeout occurred...........\nSending again..........");
+				System.out.println("Timeout occurred...........\nSending again..........\n");
 				resend(dt_Channel, p_Send, router_Socket);
 			}
 			
@@ -429,15 +429,15 @@ public class UDPClientLibrary {
 
 			Set<SelectionKey> keys = selector.selectedKeys();
 			if (keys.isEmpty()) {
-				System.out.println("Timeout occurred...........\nSending again..........");
+				System.out.println("Timeout occurred...........\nSending again..........\n");
 				resend(dt_Channel, p_handshake, router_Socket);
 			}
 
 			ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-			//buf.flip();
+//			buf.flip();
 			Packet resp = Packet.fromBuffer(buf);
 			String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
-			System.out.println(payload + " received.................");
+			System.out.println("Response received.................\n");
 			receivedPackets.add(resp.getSequenceNumber());
 			keys.clear();
 
@@ -460,7 +460,7 @@ public class UDPClientLibrary {
 
 		Set<SelectionKey> keys = selector.selectedKeys();
 		if (keys.isEmpty() && ack_Count < 10) {
-			System.out.println("Timeout occurred...........\nSending again..........");
+			System.out.println("Timeout occurred...........\nSending again..........\n");
 			resend(dt_Channel, pkt, router_Socket);
 
 		} else {
