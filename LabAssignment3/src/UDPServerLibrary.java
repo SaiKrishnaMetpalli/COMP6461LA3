@@ -19,19 +19,6 @@ public class UDPServerLibrary {
 	private boolean print_Debug_Message;
 	private String directory_Path;
 
-	static final String SERVER = "Server: httpfs/1.0.0";
-	static final String DATE = "Date: ";
-	static final String ACCESS_CONTROL_ALLOW_ORIGIN = "Access-Control-Allow-Origin: *";
-	static final String ACCESS_CONTROL_ALLOW_CREDENTIALS = "Access-Control-Allow-Credentials: true";
-	static final String VIA = "Via : 1.1 vegur";
-	static boolean debug = false;
-	static final String OK_STATUS_CODE = "HTTP/1.1 200 OK";
-	static final String FILE_NOT_FOUND_STATUS_CODE = "HTTP/1.1 404 FILE NOT FOUND";
-	static final String FILE_OVERWRITTEN_STATUS_CODE = "HTTP/1.1 201 FILE OVER-WRITTEN";
-	static String dir = System.getProperty("user.dir");
-	static final String FILE_NOT_OVERWRITTEN_STATUS_CODE = "HTTP/1.1 201 FILE NOT OVER-WRITTEN";
-	static final String NEW_FILE_CREATED_STATUS_CODE = "HTTP/1.1 202 NEW FILE CREATED";
-	static final String CONNECTIONA_LIVE = "Connection: keep-alive";
 
 	static File currentDir;
 	static int timeout = 3000;
@@ -98,15 +85,16 @@ public class UDPServerLibrary {
 
 		if (is_Continue) {
 
-			Runnable task = () -> {
+			//here, now if the server starting command is valid than we are going to initiate the datagram channel through thread
+			Runnable dataTransmission = () -> {
 				try {
 					ClientRequestHandler crh = new ClientRequestHandler(print_Debug_Message, directory_Path);
-					crh.serveRequestToServer(port);
+					crh.handleClientRequest(port);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			};
-			Thread thread = new Thread(task);
+			Thread thread = new Thread(dataTransmission);
 			thread.start();
 
 		}

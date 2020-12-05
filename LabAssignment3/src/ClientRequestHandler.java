@@ -41,51 +41,47 @@ public class ClientRequestHandler {
 
 	}
 	
-	public void serveRequestToServer(int port) {
+	public void handleClientRequest(int port) {
 		// TODO Auto-generated method stub
-		try (DatagramChannel channel = DatagramChannel.open()) {
-			channel.bind(new InetSocketAddress(port));
-			System.out.println("\nstatus: "+ channel.isConnected() + " isOPEN: "+channel.isOpen());
+		try (DatagramChannel datagramChannel = DatagramChannel.open()) {
+			datagramChannel.bind(new InetSocketAddress(port));
+			
+			ByteBuffer byteBuffer = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
 
-			ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-
-			System.out.println("IN serveRequestToServer method ");
+		
 			for (;;) {
-				buf.clear();
-				SocketAddress router = channel.receive(buf);
+				byteBuffer.clear();
+				SocketAddress router = datagramChannel.receive(byteBuffer);
 				if (router != null) {
-					// Parse a packet from the received raw data.
-					buf.flip();
-					Packet packet = Packet.fromBuffer(buf);
-					System.out.println("\nPacket: "+ packet.toString());
-					buf.flip();
+			
+					byteBuffer.flip();
+					Packet packetFromBuffer = Packet.fromBuffer(byteBuffer);
+					
+					byteBuffer.flip();
 
-					String requestPayload = new String(packet.getPayload(), StandardCharsets.UTF_8);
-					System.out.println("\nrequestPayload: "+ requestPayload.toString());
-					// Send the response to the router not the client.
-					// The peer address of the packet is the address of the client already.
-					// We can use toBuilder to copy properties of the current packet.
-					// This demonstrate how to create a new packet from an existing packet.
+					String clientRequestedData = new String(packetFromBuffer.getPayload(), StandardCharsets.UTF_8);
+					
+					
 
-					if (requestPayload.equals("Hi from Client")) {
-						System.out.println(requestPayload);
-						Packet resp = packet.toBuilder().setPayload("Hi from Server".getBytes()).create();
-						channel.send(resp.toBuffer(), router);
-						System.out.println("Sending Hi from Server");
-					} else if (requestPayload.contains("GET") || requestPayload.contains("POST") ) {
-						String responsePayload = processPayload(requestPayload).toString();  //converting strinBuilder to string
+					if (clientRequestedData.equals("Hello from client side")) {
+						System.out.println(clientRequestedData);
+						Packet handshake_pkt = packetFromBuffer.toBuilder().setPayload("Hello from server side".getBytes()).create();
+						datagramChannel.send(handshake_pkt.toBuffer(), router);
+						System.out.println("Sending Hello from server side");
+					} else if (clientRequestedData.contains("GET") || clientRequestedData.contains("POST") ) {
+						String responseData = processRequestedData(clientRequestedData).toString();  //converting strinBuilder to string
 
-						Packet resp = packet.toBuilder().setPayload(responsePayload.getBytes()).create();
-						channel.send(resp.toBuffer(), router);
+						Packet response_pkt = packetFromBuffer.toBuilder().setPayload(responseData.getBytes()).create();
+						datagramChannel.send(response_pkt.toBuffer(), router);
 
-					} else if (requestPayload.equals("Received")) {
-						System.out.println(requestPayload);
-						Packet respClose = packet.toBuilder().setPayload("Close".getBytes()).create();
-						channel.send(respClose.toBuffer(), router);
+					} else if (clientRequestedData.equals("data received successfully")) {
+						System.out.println(clientRequestedData + " at client side");
+						Packet respClose = packetFromBuffer.toBuilder().setPayload("Close".getBytes()).create();
+						datagramChannel.send(respClose.toBuffer(), router);
 
-					} else if (requestPayload.equals("Ok")) {
+					} else if (clientRequestedData.equals("Done")) {
 
-						System.out.println(requestPayload + " received..!");
+						System.out.println(clientRequestedData + " message received from client");
 
 					}
 				}
@@ -100,13 +96,13 @@ public class ClientRequestHandler {
 
 	}
 
-	private StringBuilder processPayload(String requestPayload) throws Exception {
+	private StringBuilder processRequestedData(String requestPayload) throws Exception {
 		// read request of client
 		readRequest(requestPayload);
 		// Processing the request
 		if (is_Debug_On == true) {
 			System.out.println("\n---------- Processing the request...\n");
-			System.out.println("Type of the method : " + method);
+		
 		}
 
 		processRequest();
@@ -135,7 +131,7 @@ public class ClientRequestHandler {
 			// HTTP/1.0" (our received line) should return 4
 			int index_of_space = requestPayload.indexOf(" ", path_start_index);
 			file_Path = requestPayload.substring(path_start_index, index_of_space);
-			System.out.println("FILEPATH: "+ file_Path);
+	
 		} else if (requestPayload.toLowerCase().contains("post")) {
 			method = "post";
 			int path_start_index = requestPayload.indexOf("/"); // start searching "/" after "http://" in "GET
@@ -148,7 +144,7 @@ public class ClientRequestHandler {
 		if ("/".equals(file_Path.trim())) {
 			file_Path = dir_Path;
 			list_All_Files = true;
-			System.out.println("\n\nHAVE TO PRINT TREE");
+	
 			return;
 		} else {
 			list_All_Files=false;
@@ -161,9 +157,7 @@ public class ClientRequestHandler {
 
 			}
 			data = requestPayload;
-			if (is_Debug_On) {
-				System.out.println("Storing the data from headers");
-			}
+			
 		}
 
 	}
